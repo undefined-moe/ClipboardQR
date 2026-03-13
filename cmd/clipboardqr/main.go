@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"clipboardqr/internal/clipboard"
 	"clipboardqr/internal/decode"
@@ -77,39 +78,53 @@ func onReady() {
 }
 
 func watchLoop(ctx context.Context, ch <-chan []byte, dedup *detect.Deduplicator, notifier notify.Notifier) {
+	imgCount := 0
 	for {
 		select {
 		case <-ctx.Done():
+			log.Printf("WatchLoop: context cancelled, processed %d images total", imgCount)
 			return
 		case imgBytes, ok := <-ch:
 			if !ok {
+				log.Printf("WatchLoop: channel closed, processed %d images total", imgCount)
 				return
 			}
+			imgCount++
+			log.Printf("WatchLoop: received image #%d, size=%d bytes", imgCount, len(imgBytes))
 			processImage(ctx, imgBytes, dedup, notifier)
 		}
 	}
 }
 
 func processImage(ctx context.Context, imgBytes []byte, dedup *detect.Deduplicator, notifier notify.Notifier) {
+	start := time.Now()
+	log.Printf("Process: start, image size=%d bytes", len(imgBytes))
+
 	if !dedup.IsNew(imgBytes) {
-		log.Println("ClipboardQR: skipping duplicate image")
+		log.Printf("Process: skipping duplicate image (dedup took %v)", time.Since(start))
 		return
 	}
+	log.Printf("Process: dedup passed (new image), took %v", time.Since(start))
 
+	decodeStart := time.Now()
 	text, err := decode.DecodeQR(imgBytes)
 	if err != nil {
-		log.Printf("ClipboardQR: decode error: %v", err)
+		log.Printf("Process: decode error after %v: %v", time.Since(decodeStart), err)
 		return
 	}
+	log.Printf("Process: decode completed in %v, result=%q", time.Since(decodeStart), text)
+
 	if text == "" {
-		log.Println("ClipboardQR: no QR code found in image")
+		log.Printf("Process: no QR code found, total time %v", time.Since(start))
 		return
 	}
 
 	isURL := detect.IsURL(text)
-	log.Printf("ClipboardQR: QR detected (isURL=%v): %s", isURL, text)
+	log.Printf("Process: QR detected (isURL=%v, text=%q), notifying...", isURL, text)
 
 	if err := notifier.Notify(ctx, text, isURL); err != nil {
-		log.Printf("ClipboardQR: notify error: %v", err)
+		log.Printf("Process: notify error: %v", err)
+	} else {
+		log.Printf("Process: notify succeeded, total time %v", time.Since(start))
 	}
 }

@@ -27,9 +27,6 @@ jobs:
           - os: windows-latest
             goos: windows
             goarch: amd64
-          - os: macos-13
-            goos: darwin
-            goarch: amd64
           - os: macos-latest
             goos: darwin
             goarch: arm64
