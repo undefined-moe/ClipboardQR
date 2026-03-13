@@ -66,6 +66,7 @@ func onReady() {
 			log.Println("ClipboardQR: quit requested via tray")
 		case <-sigCh:
 			log.Println("ClipboardQR: received shutdown signal")
+			tray.Quit()
 		}
 		cancel()
 	}()

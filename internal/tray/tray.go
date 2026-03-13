@@ -49,3 +49,8 @@ func Run(onReady func(), onQuit func()) {
 func QuitCh() <-chan struct{} {
 	return quitCh
 }
+
+// Quit requests the system tray to exit, causing tray.Run to return.
+func Quit() {
+	systray.Quit()
+}
