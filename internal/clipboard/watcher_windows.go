@@ -29,9 +29,35 @@ func (w *windowsWatcher) Watch(ctx context.Context) (<-chan []byte, error) {
 	log.Println("Clipboard: Init succeeded, using Windows (WM_CLIPBOARDUPDATE)")
 
 	// golang.design/x/clipboard uses AddClipboardFormatListener internally
+	textCh := clipboard.Watch(ctx, clipboard.FmtText)
+	go func() {
+		textCount := 0
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case textBytes, ok := <-textCh:
+				if !ok {
+					return
+				}
+				textCount++
+				log.Printf("Clipboard: [diag] text event #%d, size=%d bytes, content=%q",
+					textCount, len(textBytes), truncate(textBytes, 100))
+
+				imgProbe := clipboard.Read(clipboard.FmtImage)
+				log.Printf("Clipboard: [diag] image probe at text event #%d: image size=%d bytes",
+					textCount, len(imgProbe))
+				if len(imgProbe) > 0 {
+					log.Printf("Clipboard: [diag] image IS available but Watch missed it! first 16 bytes: %x", head(imgProbe, 16))
+				}
+			}
+		}
+	}()
+
 	log.Println("Clipboard: starting Watch for FmtImage...")
 	ch := clipboard.Watch(ctx, clipboard.FmtImage)
 	log.Println("Clipboard: Watch channel created, listening for clipboard image events")
+	log.Println("Clipboard: [diag] also watching FmtText for diagnostics")
 	out := make(chan []byte, 1)
 
 	go func() {
@@ -72,4 +98,18 @@ func (w *windowsWatcher) Watch(ctx context.Context) (<-chan []byte, error) {
 		}
 	}()
 	return out, nil
+}
+
+func truncate(b []byte, max int) string {
+	if len(b) <= max {
+		return string(b)
+	}
+	return string(b[:max]) + "..."
+}
+
+func head(b []byte, n int) []byte {
+	if len(b) < n {
+		return b
+	}
+	return b[:n]
 }
