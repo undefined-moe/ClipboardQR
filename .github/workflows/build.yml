@@ -24,15 +24,15 @@ jobs:
           - os: ubuntu-latest
             goos: linux
             goarch: amd64
-            binary: clipboardqr
+            binary: clipboardqr-linux-amd64
           - os: windows-latest
             goos: windows
             goarch: amd64
-            binary: clipboardqr.exe
+            binary: clipboardqr-windows-amd64.exe
           - os: macos-latest
             goos: darwin
             goarch: arm64
-            binary: clipboardqr
+            binary: clipboardqr-darwin-arm64
 
     steps:
       - uses: actions/checkout@v4
@@ -61,7 +61,7 @@ jobs:
           if [[ "${{ matrix.goos }}" == "windows" ]]; then
             LDFLAGS="$LDFLAGS -H windowsgui"
           fi
-          go build -trimpath -ldflags="$LDFLAGS" -o dist/ ./cmd/clipboardqr
+          go build -trimpath -ldflags="$LDFLAGS" -o dist/${{ matrix.binary }} ./cmd/clipboardqr
 
       - name: Compress with UPX
         if: matrix.goos != 'darwin'
