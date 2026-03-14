@@ -24,12 +24,15 @@ jobs:
           - os: ubuntu-latest
             goos: linux
             goarch: amd64
+            binary: clipboardqr
           - os: windows-latest
             goos: windows
             goarch: amd64
+            binary: clipboardqr.exe
           - os: macos-latest
             goos: darwin
             goarch: arm64
+            binary: clipboardqr
 
     steps:
       - uses: actions/checkout@v4
@@ -42,7 +45,12 @@ jobs:
         if: matrix.goos == 'linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libx11-dev libgtk-3-dev libayatana-appindicator3-dev
+          sudo apt-get install -y libx11-dev libgtk-3-dev libayatana-appindicator3-dev upx
+
+      - name: Install UPX (Windows)
+        if: matrix.goos == 'windows'
+        shell: powershell
+        run: choco install upx -y
 
       - name: Build
         env:
@@ -55,8 +63,13 @@ jobs:
           fi
           go build -trimpath -ldflags="$LDFLAGS" -o dist/ ./cmd/clipboardqr
 
+      - name: Compress with UPX
+        if: matrix.goos != 'darwin'
+        run: upx --best dist/${{ matrix.binary }}
+
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: clipboardqr-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: dist/
+          path: dist/${{ matrix.binary }}
+          archive: false
